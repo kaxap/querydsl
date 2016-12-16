@@ -132,9 +132,20 @@ public abstract class MongodbSerializer implements Visitor<Object, Void> {
             }
 
         } else if (op == Ops.OR) {
+
+
             BasicDBList list = new BasicDBList();
             list.add(handle(expr.getArg(0)));
-            list.add(handle(expr.getArg(1)));
+
+            if (Collection.class.isAssignableFrom(expr.getArg(1).getType())) {
+                @SuppressWarnings("unchecked") //guarded by previous check
+                Collection<?> values = ((Constant<? extends Collection<?>>) expr.getArg(1)).getConstant();
+                list.addAll(values);
+            } else {
+
+                list.add(handle(expr.getArg(1)));
+            }
+
             return asDBObject("$or", list);
 
         } else if (op == Ops.NE) {
