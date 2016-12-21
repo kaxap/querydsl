@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.querydsl.mongodb.util.InBasicDBList;
 import org.bson.BSONObject;
 import org.bson.types.ObjectId;
 
@@ -132,20 +133,9 @@ public abstract class MongodbSerializer implements Visitor<Object, Void> {
             }
 
         } else if (op == Ops.OR) {
-
-
             BasicDBList list = new BasicDBList();
             list.add(handle(expr.getArg(0)));
-
-            if (Collection.class.isAssignableFrom(expr.getArg(1).getType())) {
-                @SuppressWarnings("unchecked") //guarded by previous check
-                Collection<?> values = ((Constant<? extends Collection<?>>) expr.getArg(1)).getConstant();
-                list.addAll(values);
-            } else {
-
-                list.add(handle(expr.getArg(1)));
-            }
-
+            list.add(handle(expr.getArg(1)));
             return asDBObject("$or", list);
 
         } else if (op == Ops.NE) {
@@ -204,7 +194,12 @@ public abstract class MongodbSerializer implements Visitor<Object, Void> {
             if (Collection.class.isAssignableFrom(expr.getArg(constIndex).getType())) {
                 @SuppressWarnings("unchecked") //guarded by previous check
                 Collection<?> values = ((Constant<? extends Collection<?>>) expr.getArg(constIndex)).getConstant();
-                return asDBObject(asDBKey(expr, exprIndex), asDBObject("$in", values.toArray()));
+
+                if (values instanceof InBasicDBList) {
+                    return asDBObject(asDBKey(expr, exprIndex), asDBObject("$or", values.toArray()));
+                } else {
+                    return asDBObject(asDBKey(expr, exprIndex), asDBObject("$in", values.toArray()));
+                }
             } else {
                 Path<?> path = (Path<?>) expr.getArg(exprIndex);
                 Constant<?> constant = (Constant<?>) expr.getArg(constIndex);
